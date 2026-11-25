@@ -14,6 +14,8 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_BACKEND_URL: ${{ vars.VITE_BACKEND_URL }}
       - run: npx cap sync android
       - name: Show signing SHA-1 (add this to Firebase)
         run: keytool -list -v -keystore android/app/finora-debug.keystore -storepass android | grep -E "SHA1|SHA256"

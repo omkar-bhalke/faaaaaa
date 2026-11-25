@@ -295,6 +295,12 @@ export function Onboarding() {
     </>
   );
 }
+const GROUPS: [string, string[]][] = [
+  ["Account", ["Google account", "Profile setup", "Log out"]],
+  ["Money", ["Banks & notifications", "Fixed monthly expenses", "Expense reminders", "Savings goals", "Spending control"]],
+  ["Family & alerts", ["Parent Connect", "Notification settings"]],
+  ["App & privacy", ["Theme", "Privacy policy", "Data export", "Delete my data"]],
+];
 export function Profile() {
   const { s, set, go, toast } = useApp(),
     [act, A] = useState("");
@@ -314,9 +320,22 @@ export function Profile() {
         title="Profile & settings"
         sub="Manage your account, preferences and data."
       />
+      <section className="profhero">
+        <span className="profav" style={s.photo ? { backgroundImage: `url(${s.photo})` } : undefined}>{s.photo ? "" : (s.name || "F")[0].toUpperCase()}</span>
+        <div>
+          <strong>{s.name || "FINORA user"}</strong>
+          <small>{s.email}</small>
+        </div>
+        <div className="profstats">
+          <span><b>{s.tx.length}</b>Records</span>
+          <span><b>{s.banks?.length || 0}</b>Banks</span>
+          <span><b>{s.goals?.length || 0}</b>Goals</span>
+        </div>
+      </section>
       <ProfileForm />
-      <section className="panel">
-        <h2>Preferences</h2>
+      {GROUPS.map(([gt, keys]) => (
+      <section className="panel" key={gt}>
+        <h2>{gt}</h2>
         {[
           [
             "Theme",
@@ -336,7 +355,7 @@ export function Profile() {
           ["Data export", "Download JSON", exportData],
           ["Delete my data", "Delete", () => A("delete")],
           ["Log out", "Log out", () => A("logout")],
-        ].map(([k, v, fn]) => (
+        ].filter(([k]) => (keys as string[]).includes(String(k))).map(([k, v, fn]) => (
           <button
             key={String(k)}
             className="settingbtn"
@@ -349,6 +368,7 @@ export function Profile() {
           </button>
         ))}
       </section>
+      ))}
       {act && (
         <Confirm
           text={
@@ -455,10 +475,12 @@ export function Assistant() {
         (t) => t.date >= dateKey(offset(-13)) && t.date < dateKey(offset(-6)),
       ),
     );
-  function ask(v: string) {
+  async function ask(v: string) {
     if (!v.trim()) return;
-    M((p) => [...p, { q: v, a: services.ai.ask(v, s, f).data }]);
     Q("");
+    M((p) => [...p, { q: v, a: "Thinking…" }]);
+    const a = await services.ai.askRemote(v, s, f);
+    M((p) => { const n = [...p]; for (let i = n.length - 1; i >= 0; i--) if (n[i].q === v && n[i].a === "Thinking…") { n[i] = { q: v, a }; break; } return n; });
   }
   return (
     <>

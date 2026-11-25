@@ -18,3 +18,6 @@ Local: `npm install && npm run build && npx cap sync android && cd android && ./
 - `src/banks.ts`, `src/parsers.ts`, `src/engine.ts` – bank registry, notification parsers, dedupe/reconcile.
 - `android/app/src/main/java/com/finora/app/` – `BankNotificationService` + `FinoraNativePlugin` (native notification listener).
 - `src/firebase.ts` – Google sign-in + Firestore sync (`users/{uid}`, `users/{uid}/transactions/{id}`).
+
+## Backend (Render)
+Set `VITE_BACKEND_URL=https://<your-service>.onrender.com` at build time (GitHub Actions: repo Variables → add and pass in the build step). The AI assistant then answers via the server; without it, it falls back to local answers. Server code lives in the separate FINOR-RABDER repo.

@@ -1,8 +1,19 @@
 import { State, summary, total, dateKey, cats } from "./model";
+import { auth } from "./firebase";
 // Backend (Render) base URL. Leave empty until the automation backend is deployed.
-export const BACKEND_URL = "";
+export const BACKEND_URL: string = (import.meta.env.VITE_BACKEND_URL as string) || "";
 export type Result<T> = { mode: "local"; data: T };
 const local = <T>(data: T): Result<T> => ({ mode: "local", data });
+// Calls the Render backend with the user's Firebase ID token. Throws on any failure so callers can fall back.
+export async function backend<T>(path: string, body: unknown): Promise<T> {
+  if (!BACKEND_URL) throw new Error("Backend not configured");
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("Not signed in");
+  const r = await fetch(BACKEND_URL.replace(/\/$/, "") + path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j as any).error || "Request failed");
+  return j as T;
+}
 export const services = {
   restrictions: {
     applies: (s: State, app: string) =>
@@ -10,6 +21,15 @@ export const services = {
   },
   analytics: { summarize: summary },
   ai: {
+    // Server-side AI (key never ships in the app). Sends only aggregates, not raw transactions. Falls back to local answers.
+    askRemote: async (q: string, s: State, f: (n: number) => string): Promise<string> => {
+      try {
+        const m = summary(s);
+        const context = { currency: s.currency, dailyLimit: s.daily, monthlyBudget: s.monthly, spentToday: m.spent, spentThisMonth: m.monthly, fixedBills: m.fixed,
+          byCategory: Object.fromEntries(cats.map((c) => [c, total(m.month.filter((t) => t.category === c))])) };
+        return (await backend<{ answer: string }>("/ai/chat", { question: q, context })).answer;
+      } catch { return services.ai.ask(q, s, f).data; }
+    },
     // Answers computed from the user's real records (LLM-backed answers will come from the backend).
     ask: (q: string, s: State, f: (n: number) => string) => {
       const m = summary(s), l = q.toLowerCase(),

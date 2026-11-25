@@ -1349,3 +1349,11 @@ html.native aside {
   .welcomeart > h1 br, .welcomeart > .artcard { display: none; }
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.profhero{display:flex;flex-wrap:wrap;align-items:center;gap:14px;background:linear-gradient(135deg,#086658,#2f8a5f);color:#fff;border-radius:18px;padding:20px;margin-bottom:14px}
+.profhero strong{display:block;font-family:Georgia,serif;font-size:20px}
+.profhero small{opacity:.85;word-break:break-all}
+.profav{width:64px;height:64px;border-radius:50%;background:#dce8cc center/cover;color:#345741;display:grid;place-items:center;font:600 28px Georgia,serif;border:3px solid rgba(255,255,255,.6);flex:none}
+.profstats{display:flex;gap:10px;width:100%}
+.profstats span{flex:1;background:rgba(255,255,255,.14);border-radius:12px;padding:10px 4px;text-align:center;font-size:12px}
+.profstats b{display:block;font-size:18px}
