@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "464765983636",
+    "firebase_url": "https://finoraaaaaa-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "finoraaaaaa",
+    "storage_bucket": "finoraaaaaa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:464765983636:android:c8f9b199742f517c85cd81",
+        "android_client_info": {
+          "package_name": "com.finora.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "464765983636-g27tmf7sn4kceoflihl5lduijsqi6c6h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.finora.app",
+            "certificate_hash": "45ff5bc2c87319e6d34a82dd69ad95f3f68f56ee"
+          }
+        },
+        {
+          "client_id": "464765983636-qj99ck0f7jp594mavo10m3600h6e4puc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRyS7ycVW1UOaU1Wie79vAaNZ2pA4fnd0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "464765983636-qj99ck0f7jp594mavo10m3600h6e4puc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

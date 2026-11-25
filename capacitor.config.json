@@ -1,0 +1,26 @@
+{
+  "appId": "com.finora.app",
+  "appName": "Finora",
+  "webDir": "dist",
+  "backgroundColor": "#eaf2e9",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "backgroundColor": "#eaf2e9"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#ffffff",
+      "overlaysWebView": false
+    },
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": [
+        "google.com"
+      ]
+    },
+    "LocalNotifications": {
+      "iconColor": "#086658"
+    }
+  }
+}
