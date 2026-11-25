@@ -1,14 +1,15 @@
 import { initializeApp } from "firebase/app";
-import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithCredential, signOut, User } from "firebase/auth";
+import { GoogleAuthProvider, getAdditionalUserInfo, getAuth, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, User } from "firebase/auth";
 import { collection, deleteDoc, doc, getDoc, getDocs, initializeFirestore, persistentLocalCache, writeBatch } from "firebase/firestore";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
-import type { State, Tx } from "./model";
+import { Capacitor } from "@capacitor/core";
+import { emptyState, type State, type Tx } from "./model";
 
 // Client-side Firebase config (from google-services.json). These identify the project; access is
 // protected by Firestore rules + Authentication, not by hiding these values.
 const app = initializeApp({
-  apiKey: "AIzaSyBRyS7ycVW1UOaU1Wie79vAaNZ2pA4fnd0",
-  appId: "1:464765983636:android:c8f9b199742f517c85cd81",
+  apiKey: import.meta.env.VITE_FIREBASE_WEB_API_KEY || "AIzaSyBRyS7ycVW1UOaU1Wie79vAaNZ2pA4fnd0",
+  appId: import.meta.env.VITE_FIREBASE_WEB_APP_ID || "1:464765983636:android:c8f9b199742f517c85cd81",
   projectId: "finoraaaaaa",
   storageBucket: "finoraaaaaa.firebasestorage.app",
   messagingSenderId: "464765983636",
@@ -23,22 +24,40 @@ const toUser = (u: User): AuthUser => ({ uid: u.uid, name: u.displayName || "", 
 export function watchAuth(cb: (u: AuthUser | null) => void) {
   return onAuthStateChanged(auth, (u) => cb(u ? toUser(u) : null));
 }
-export async function googleSignIn(): Promise<AuthUser> {
-  const r = await FirebaseAuthentication.signInWithGoogle();
-  const idToken = r.credential?.idToken;
+export const localKey = (uid: string) => "finora-v2-" + uid;
+
+export async function googleSignIn() {
+  const result = Capacitor.isNativePlatform()
+    ? await signInWithCredential(auth, await nativeGoogleCredential())
+    : await signInWithPopup(auth, new GoogleAuthProvider());
+
+  // A confirmed first sign-in can start setup even if Firestore is unavailable.
+  if (getAdditionalUserInfo(result)?.isNewUser) {
+    const user = toUser(result.user);
+    try {
+      if (!localStorage.getItem(localKey(user.uid))) {
+        localStorage.setItem(localKey(user.uid), JSON.stringify(emptyState(user)));
+      }
+    } catch {}
+  }
+}
+async function nativeGoogleCredential() {
+  const result = await FirebaseAuthentication.signInWithGoogle();
+  const idToken = result.credential?.idToken;
   if (!idToken) throw new Error("Google did not return a sign-in token.");
-  const res = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
-  return toUser(res.user);
+  return GoogleAuthProvider.credential(idToken);
 }
 export async function logout() {
-  try { await FirebaseAuthentication.signOut(); } catch {}
+  if (Capacitor.isNativePlatform()) {
+    try { await FirebaseAuthentication.signOut(); } catch {}
+  }
   await signOut(auth);
 }
 export const authMessage = (e: unknown) => {
   const m = String((e as any)?.message || e || "");
   if (/cancel/i.test(m)) return "Sign-in was cancelled.";
   if (/network/i.test(m)) return "No internet connection. Please try again.";
-  if (/10|developer/i.test(m)) return "Google sign-in is not configured for this build (add the app's SHA-1 in Firebase, then re-download google-services.json).";
+  if (/\b10\b|developer.error/i.test(m)) return "Google sign-in is not configured for this build (add the app's SHA-1 in Firebase, then re-download google-services.json).";
   return "Sign-in failed. " + m;
 };
 

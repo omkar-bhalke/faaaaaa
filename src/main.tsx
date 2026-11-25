@@ -10,7 +10,7 @@ import {
 } from "react-router-dom";
 import { C, useApp, I, Mark, Title, Badge, IconBtn, Btn, Empty } from "./ui";
 import { emptyState, normalize, State, dateKey, uid } from "./model";
-import { watchAuth, loadCloud, saveCloud, AuthUser } from "./firebase";
+import { watchAuth, loadCloud, saveCloud, logout, localKey, AuthUser } from "./firebase";
 import { native } from "./native";
 import { BankSelect, NotificationAccess, Reconcile, Goals, useSync } from "./bankui";
 import { Home } from "./home";
@@ -250,71 +250,70 @@ function NativeSync() {
   }, []);
   return null;
 }
-const localKey = (uid: string) => "finora-v2-" + uid;
+function readDeviceProfile(user: AuthUser) {
+  try {
+    const raw = localStorage.getItem(localKey(user.uid));
+    return raw ? normalize(JSON.parse(raw), user) : null;
+  } catch { return null; }
+}
 function App() {
-  const [user, setUser] = useState<AuthUser | null | undefined>(undefined),
-    [s, setS] = useState<State | null>(null),
+  const [user, setUser] = useState<AuthUser | null | undefined>();
+  useEffect(() => watchAuth(setUser), []);
+  return <Session key={user?.uid ?? (user === undefined ? "loading" : "guest")} user={user} />;
+}
+
+function Session({ user }: { user: AuthUser | null | undefined }) {
+  const [s, setS] = useState<State | null>(null),
     [issue, J] = useState(""),
     [msg, T] = useState(""),
-    [min, setMin] = useState(true),
+    [attempt, retry] = useState(0),
+    [loadFailed, setLoadFailed] = useState(false),
     prev = useRef<State | null>(null),
-    canSave = useRef(false),
     chain = useRef<Promise<unknown>>(Promise.resolve());
   const set: React.Dispatch<React.SetStateAction<State>> = (fn) =>
     setS((p) => (p ? (typeof fn === "function" ? (fn as (x: State) => State)(p) : fn) : p));
   useEffect(() => {
-    const t = setTimeout(() => setMin(false), 650);
-    return () => clearTimeout(t);
-  }, []);
-  // 1) session + data load
-  useEffect(
-    () =>
-      watchAuth(async (u) => {
-        canSave.current = false;
-        prev.current = null;
-        if (!u) {
-          setS(null);
-          setUser(null);
-          return;
+    if (!user) return;
+    const account = user;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    setLoadFailed(false);
+    async function openProfile() {
+      try {
+        const timeout = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Profile request timed out")), 8000);
+        });
+        const cloud = await Promise.race([loadCloud(account.uid), timeout]);
+        if (!active) return;
+        const state = cloud ? normalize(cloud, account) : readDeviceProfile(account) || emptyState(account);
+        prev.current = cloud ? state : null;
+        setS(state);
+      } catch {
+        if (!active) return;
+        const local = readDeviceProfile(account);
+        if (local) {
+          prev.current = local;
+          setS(local);
+          J("Opened the profile saved on this device. Cloud storage is unavailable.");
+        } else {
+          setLoadFailed(true);
         }
-        let local: State | null = null;
-        try {
-          const raw = localStorage.getItem(localKey(u.uid));
-          if (raw) local = normalize(JSON.parse(raw), u);
-        } catch {}
-        try {
-          const cloud = await loadCloud(u.uid);
-          if (cloud) {
-            const n = normalize(cloud, u);
-            prev.current = n;
-            setS(n);
-          } else {
-            setS(local || emptyState(u));
-          }
-          canSave.current = true;
-        } catch {
-          // offline / rules problem: use the local copy, only save if we have one
-          setS(local || emptyState(u));
-          canSave.current = !!local;
-          J("Could not reach cloud storage. Working from the copy on this device.");
-        }
-        setUser(u);
-      }),
-    [],
-  );
-  // 2) route guard
-  useEffect(() => {
-    if (!user || !s) return;
-    if (!s.ready && !["#/onboarding", "#/privacy", "#/terms"].includes(location.hash)) location.hash = "/onboarding";
-  }, [user, s?.ready]);
-  // 3) persist (device + Firestore)
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    void openProfile();
+    return () => { active = false; clearTimeout(timer); };
+  }, [user, attempt]);
+
+  // Persist the device copy immediately, including the last onboarding step.
   useEffect(() => {
     if (!s || !user) return;
-    const id = setTimeout(() => {
-      try {
-        localStorage.setItem(localKey(user.uid), JSON.stringify(s));
-      } catch {}
-      if (!canSave.current) return;
+    try {
+      localStorage.setItem(localKey(user.uid), JSON.stringify(s));
+    } catch {}
+    if (prev.current === s) return;
+    const persist = () => {
       const snap = s;
       chain.current = chain.current.then(() =>
         saveCloud(user.uid, prev.current, snap)
@@ -323,9 +322,14 @@ function App() {
           })
           .catch(() => J("Changes saved on this device. Cloud sync will retry.")),
       );
-    }, 900);
+    };
+    if (s.ready && !prev.current?.ready) {
+      persist();
+      return;
+    }
+    const id = setTimeout(persist, 900);
     return () => clearTimeout(id);
-  }, [s]);
+  }, [s, user]);
   useEffect(() => {
     if (!msg) return;
     const id = setTimeout(() => T(""), 4500);
@@ -380,30 +384,49 @@ function App() {
     const timer = setInterval(tick, 15000);
     return () => clearInterval(timer);
   }, []);
-  const loading = min || user === undefined;
+  const loading = user === undefined || (!!user && !s);
   const guest = emptyState({ uid: "", name: "", email: "", photo: "" });
   return (
     <C.Provider value={{ s: s || guest, set: set, toast: T }}>
       {loading ? (
-        <div className="splash">
+        <div className="splash" role="status">
           <Mark />
           <h1>Finora.</h1>
-          <p>Understand Your Money. Control Your Spending.</p>
-          <i />
+          {loadFailed ? (
+            <>
+              <p>Your profile could not be loaded. Check your connection and try again.</p>
+              <Btn onClick={() => { setLoadFailed(false); retry(attempt + 1); }}>Try again</Btn>
+              <button onClick={() => logout().catch(() => T("Could not sign out. Try again."))}>Sign out</button>
+            </>
+          ) : (
+            <><p>{user ? "Opening your profile…" : "Opening Finora…"}</p><i /></>
+          )}
         </div>
       ) : s ? (
         <>
-          <Shell />
+          {s.ready ? <Shell /> : (
+            <div className={"app entry " + (s.dark ? "dark" : "")}>
+              <main>
+                <Routes>
+                  <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="/privacy" element={<Legal k="privacy" />} />
+                  <Route path="/terms" element={<Legal k="terms" />} />
+                  <Route path="*" element={<Navigate to="/onboarding" replace />} />
+                </Routes>
+              </main>
+            </div>
+          )}
           <NativeSync />
         </>
       ) : (
-        <div className="app">
-          <div className="content" style={{ margin: 0 }}>
+        <div className="app entry">
+          <div className="content">
             <main>
               <Routes>
                 <Route path="/privacy" element={<Legal k="privacy" />} />
                 <Route path="/terms" element={<Legal k="terms" />} />
-                <Route path="*" element={<Welcome />} />
+                <Route path="/welcome" element={<Welcome />} />
+                <Route path="*" element={<Navigate to="/welcome" replace />} />
               </Routes>
             </main>
           </div>

@@ -8,8 +8,12 @@
       "launchShowDuration": 0,
       "backgroundColor": "#eaf2e9"
     },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover"
+    },
     "StatusBar": {
-      "style": "DARK",
+      "style": "LIGHT",
       "backgroundColor": "#ffffff",
       "overlaysWebView": false
     },

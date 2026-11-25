@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useApp,
   I,
@@ -151,7 +151,7 @@ export function Welcome() {
           <Contours />
           <Mark />
           <h1>
-            Your money,
+            Your money,{" "}
             <br />
             in focus.
           </h1>
@@ -171,6 +171,10 @@ export function Welcome() {
         </div>
         <div className="welcomecopy">
           <h2>A clearer view of your finances</h2>
+          <Btn disabled={busy} onClick={login}>
+            {busy ? "Signing in…" : "Continue with Google"}
+          </Btn>
+          <small>New here? Signing in with Google creates your account.</small>
           {[
             ["Link2", "Track expenses from your bank notifications"],
             ["Wallet", "Monitor daily and monthly spending"],
@@ -183,10 +187,6 @@ export function Welcome() {
               <I n={i} /> {v}
             </p>
           ))}
-          <Btn disabled={busy} onClick={login}>
-            {busy ? "Signing in…" : "Continue with Google"}
-          </Btn>
-          <small>New here? Signing in with Google creates your account.</small>
           <div className="actions">
             <button className="link" onClick={() => go("/privacy")}>
               Privacy policy
@@ -249,9 +249,10 @@ export function Onboarding() {
     next = () => {
       if (step === last) {
         set((p) => ({ ...p, ready: true }));
-        go("/");
+        go("/", { replace: true });
       } else S(step + 1);
     };
+  useEffect(() => { window.scrollTo(0, 0); }, [step]);
   return (
     <>
       <Title title={titles[step]} sub={"Step " + (step + 1) + " of " + titles.length} />

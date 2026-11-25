@@ -7,7 +7,7 @@
    (debug key committed at `android/app/finora-debug.keystore`; same key on every build.)
 3. Download the new `google-services.json` and replace `android/app/google-services.json` (and the keys in `src/firebase.ts` if they change).
 4. Firestore Database → Create database → Rules → paste `firestore.rules` → Publish.
-5. Google Cloud Console → restrict the API key to your Android app (package + SHA-1).
+5. The account picker uses the Android configuration. Firebase Auth and Firestore run in the WebView. If the Android API key has a package restriction, set `VITE_FIREBASE_WEB_API_KEY` and `VITE_FIREBASE_WEB_APP_ID` at build time from a Firebase Web app registered in the same project. Allow the WebView origin `https://localhost` for any web referrer restriction.
 
 ## Build the APK
 Push to GitHub → Actions → **Build Android APK** → download artifact `Finora-apk`.
